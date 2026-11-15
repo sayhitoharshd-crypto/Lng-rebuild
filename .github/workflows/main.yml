@@ -1,0 +1,60 @@
+
+name: LineGuard Android Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Extract original LineGuard
+        run: unzip -q LineGuard-Recovered-Original-Source.zip
+
+      - name: Install dependencies
+        working-directory: LineGuard-Recovered-Original
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Generate Android project
+        working-directory: LineGuard-Recovered-Original
+        run: pnpm --filter @workspace/lineguard exec expo prebuild --platform android --no-install
+
+      - name: Build release APK
+        working-directory: LineGuard-Recovered-Original/artifacts/lineguard/android
+        run: chmod +x gradlew && ./gradlew assembleRelease --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: LineGuard-Release-APK
+          path: LineGuard-Recovered-Original/artifacts/lineguard/android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
